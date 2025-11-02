@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">IPSHelper</string>
+    <string name="nav_header_desc">Navigation header</string>
+    <string-array name="directions">
+        <item>N</item>
+        <item>S</item>
+        <item>E</item>
+        <item>W</item>
+    </string-array>
+</resources>
+
+

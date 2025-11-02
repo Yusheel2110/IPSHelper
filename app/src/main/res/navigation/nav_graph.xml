@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/navigation_scan">
+
+    <!-- 🧭 Manual Scan Fragment -->
+    <fragment
+        android:id="@+id/navigation_scan"
+        android:name="za.ac.ukzn.ipshelper.ui.scan.ScanFragment"
+        android:label="Scan"
+        tools:layout="@layout/fragment_scan" />
+
+    <!-- 🚶‍♂️ Centreline Walk Fragment -->
+    <fragment
+        android:id="@+id/navigation_walk"
+        android:name="za.ac.ukzn.ipshelper.ui.walk.WalkModeFragment"
+        android:label="Centreline Walk"
+        tools:layout="@layout/fragment_walk_mode" />
+
+</navigation>
