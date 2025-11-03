@@ -29,14 +29,13 @@ import kotlin.concurrent.fixedRateTimer
 
 class WalkModeFragment : Fragment() {
 
-    // UI
+    // UI components
     private lateinit var txtStatus: TextView
     private lateinit var txtHeading: TextView
     private lateinit var txtSteps: TextView
     private lateinit var txtDuration: TextView
     private lateinit var txtNextAnchor: TextView
     private lateinit var txtOffsetValue: TextView
-    private lateinit var txtCurrentNode: TextView
     private lateinit var edtManualHeading: EditText
     private lateinit var btnSetHeading: Button
     private lateinit var btnStart: Button
@@ -45,18 +44,16 @@ class WalkModeFragment : Fragment() {
     private lateinit var btnAddOffset: Button
     private lateinit var btnSubOffset: Button
     private lateinit var btnResetOffset: Button
-    private lateinit var btnNextAnchor: Button
-    private lateinit var btnPrevAnchor: Button
     private lateinit var compassImage: ImageView
     private lateinit var spinnerStartLabel: Spinner
     private lateinit var spinnerEndLabel: Spinner
 
-    // Core
+    // Core modules
     private var wifiScanner: WifiScanner? = null
     private var pdrManager: PDRManager? = null
     private lateinit var headingManager: HeadingManager
 
-    // Session
+    // Session variables
     private var sessionId = ""
     private var isWalking = false
     private var startTime = 0L
@@ -71,16 +68,15 @@ class WalkModeFragment : Fragment() {
 
     private var movingForward = true
     private var anchorIndex = 0
-    private var currentAnchorIndex = 0
 
-    // ✅ Anchor metadata (expandable)
+    // Anchor metadata
     private val anchorPoints = mapOf(
-        "C1" to Pair(0.0, 0.0),
         "C4" to Pair(1.0154, 4.6353),
         "C9" to Pair(16.3398, 4.6369),
         "C14" to Pair(27.0163, 4.6369)
     )
-    private val anchorList = anchorPoints.keys.sorted()
+    private val anchorsForward = listOf("C4", "C9", "C14")
+    private val anchorsReverse = listOf("C14", "C9", "C4")
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -95,13 +91,13 @@ class WalkModeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // UI setup
         txtStatus = view.findViewById(R.id.txtStatus)
         txtHeading = view.findViewById(R.id.txtHeading)
         txtSteps = view.findViewById(R.id.txtSteps)
         txtDuration = view.findViewById(R.id.txtDuration)
         txtNextAnchor = view.findViewById(R.id.txtNextAnchor)
         txtOffsetValue = view.findViewById(R.id.txtOffsetValue)
-        txtCurrentNode = view.findViewById(R.id.txtCurrentNode)
         edtManualHeading = view.findViewById(R.id.edtManualHeading)
         btnSetHeading = view.findViewById(R.id.btnSetHeading)
         btnStart = view.findViewById(R.id.btnStartWalk)
@@ -110,21 +106,18 @@ class WalkModeFragment : Fragment() {
         btnAddOffset = view.findViewById(R.id.btnAddOffset)
         btnSubOffset = view.findViewById(R.id.btnSubOffset)
         btnResetOffset = view.findViewById(R.id.btnResetOffset)
-        btnNextAnchor = view.findViewById(R.id.btnNextAnchor)
-        btnPrevAnchor = view.findViewById(R.id.btnPrevAnchor)
         compassImage = view.findViewById(R.id.compassImage)
         spinnerStartLabel = view.findViewById(R.id.spinnerStartLabel)
         spinnerEndLabel = view.findViewById(R.id.spinnerEndLabel)
 
-        // ✅ Populate start/end spinners dynamically
-        val coordLabels = anchorList
+        // Dynamic start/end label loading
+        val coordLabels = listOf("1-01", "1-13")
         val labelAdapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, coordLabels)
         labelAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerStartLabel.adapter = labelAdapter
         spinnerEndLabel.adapter = labelAdapter
 
-        spinnerStartLabel.setSelection(0)
-        spinnerEndLabel.setSelection(coordLabels.size - 1)
+        updateDirectionLabels()
 
         wifiScanner = WifiScanner(requireContext())
         pdrManager = PDRManager(requireContext())
@@ -132,20 +125,11 @@ class WalkModeFragment : Fragment() {
             updateCompass(heading)
         }
 
-        // Offset + manual heading
-        btnAddOffset.setOnClickListener {
-            headingOffset += 5
-            updateOffsetDisplay()
-        }
-        btnSubOffset.setOnClickListener {
-            headingOffset -= 5
-            updateOffsetDisplay()
-        }
-        btnResetOffset.setOnClickListener {
-            headingOffset = 0.0
-            manualHeadingOverride = null
-            updateOffsetDisplay()
-        }
+        // Manual heading + offset controls
+        btnAddOffset.setOnClickListener { headingOffset += 5; updateOffsetDisplay() }
+        btnSubOffset.setOnClickListener { headingOffset -= 5; updateOffsetDisplay() }
+        btnResetOffset.setOnClickListener { headingOffset = 0.0; manualHeadingOverride = null; updateOffsetDisplay() }
+
         btnSetHeading.setOnClickListener {
             val value = edtManualHeading.text.toString().toDoubleOrNull()
             if (value != null) {
@@ -154,27 +138,14 @@ class WalkModeFragment : Fragment() {
                 compassImage.rotation = -manualHeadingOverride!!.toFloat()
                 txtHeading.text = "Heading: %.1f° (manual)".format(manualHeadingOverride)
             } else {
-                Toast.makeText(requireContext(), "Enter valid number", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Enter valid heading value", Toast.LENGTH_SHORT).show()
             }
-        }
-
-        // ✅ Anchor cycling now updates correctly
-        btnNextAnchor.setOnClickListener {
-            currentAnchorIndex = (currentAnchorIndex + 1) % anchorList.size
-            updateCurrentNodeText()
-            updateNextAnchorText()
-        }
-        btnPrevAnchor.setOnClickListener {
-            currentAnchorIndex = if (currentAnchorIndex - 1 < 0) anchorList.size - 1 else currentAnchorIndex - 1
-            updateCurrentNodeText()
-            updateNextAnchorText()
         }
 
         btnStart.setOnClickListener { checkPermissionsAndStart() }
         btnStop.setOnClickListener { stopWalk() }
         btnMarkAnchor.setOnClickListener { markAnchor() }
 
-        updateCurrentNodeText()
         startGleamEffect()
         updateNextAnchorText()
     }
@@ -191,9 +162,14 @@ class WalkModeFragment : Fragment() {
         txtOffsetValue.text = "Offset: %.0f°".format(headingOffset)
     }
 
-    private fun updateCurrentNodeText() {
-        val currentNode = anchorList[currentAnchorIndex]
-        txtCurrentNode.text = "Current: $currentNode"
+    private fun updateDirectionLabels() {
+        if (movingForward) {
+            spinnerStartLabel.setSelection(0) // 1-01
+            spinnerEndLabel.setSelection(1)   // 1-13
+        } else {
+            spinnerStartLabel.setSelection(1)
+            spinnerEndLabel.setSelection(0)
+        }
     }
 
     private fun startGleamEffect() {
@@ -207,8 +183,8 @@ class WalkModeFragment : Fragment() {
     }
 
     private fun updateNextAnchorText() {
-        val nextIndex = (currentAnchorIndex + 1) % anchorList.size
-        val nextAnchor = anchorList[nextIndex]
+        val list = if (movingForward) anchorsForward else anchorsReverse
+        val nextAnchor = if (anchorIndex < list.size) list[anchorIndex] else "None"
         txtNextAnchor.text = "Next Anchor: $nextAnchor"
     }
 
@@ -237,16 +213,15 @@ class WalkModeFragment : Fragment() {
         walkData = JSONArray()
         eventsArray = JSONArray()
         stepCount = 0
-
-        pdrManager?.reset() // ✅ Reset step baseline before walk
-        txtSteps.text = "Steps: 0"
-        txtDuration.text = "Duration: 0 s"
-        txtStatus.text = "Session ID: $sessionId\nCollecting data..."
-
+        anchorIndex = 0
         pdrManager?.start { _, _, heading ->
             lastHeading = heading
             stepCount = pdrManager?.stepCount ?: 0
         }
+
+        txtStatus.text = "Session ID: $sessionId\nCollecting data..."
+        txtSteps.text = "Steps: 0"
+        txtDuration.text = "Duration: 0 s"
 
         timer = fixedRateTimer("walkScan", true, 0L, 1000L) {
             handler.post {
@@ -256,6 +231,7 @@ class WalkModeFragment : Fragment() {
         }
 
         Toast.makeText(requireContext(), "Walk started", Toast.LENGTH_SHORT).show()
+        updateNextAnchorText()
     }
 
     private fun performScan() {
@@ -295,11 +271,17 @@ class WalkModeFragment : Fragment() {
             return
         }
 
-        val currentNode = anchorList[currentAnchorIndex]
-        val coords = anchorPoints[currentNode] ?: return
+        val list = if (movingForward) anchorsForward else anchorsReverse
+        if (anchorIndex >= list.size) {
+            Toast.makeText(requireContext(), "No anchors left in this direction.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val label = list[anchorIndex]
+        val coords = anchorPoints[label] ?: return
         val anchorJson = JSONObject().apply {
             put("type", "anchor_marker")
-            put("label", currentNode)
+            put("label", label)
             put("timestamp", System.currentTimeMillis())
             put("step_count", stepCount)
             put("heading", lastHeading)
@@ -308,8 +290,11 @@ class WalkModeFragment : Fragment() {
         }
 
         eventsArray.put(anchorJson)
-        txtStatus.text = "Anchor marked: $currentNode"
-        Toast.makeText(requireContext(), "Anchor $currentNode saved.", Toast.LENGTH_SHORT).show()
+        txtStatus.text = "Anchor marked: $label"
+        Toast.makeText(requireContext(), "Anchor $label saved.", Toast.LENGTH_SHORT).show()
+
+        anchorIndex++
+        updateNextAnchorText()
     }
 
     private fun updateDuration() {
@@ -322,7 +307,6 @@ class WalkModeFragment : Fragment() {
         isWalking = false
         timer?.cancel()
         pdrManager?.stop()
-        pdrManager?.reset() // ✅ Reset again after stop to clear step baseline
 
         val startLabel = spinnerStartLabel.selectedItem.toString()
         val endLabel = spinnerEndLabel.selectedItem.toString()
@@ -342,6 +326,13 @@ class WalkModeFragment : Fragment() {
 
         txtStatus.text = "Session saved: ${file.name}"
         Toast.makeText(requireContext(), "Walk data saved to ${file.name}", Toast.LENGTH_LONG).show()
+
+        // 🔁 Flip direction and reset anchors
+        movingForward = !movingForward
+        anchorIndex = 0
+        stepCount = 0
+        updateDirectionLabels()
+        updateNextAnchorText()
     }
 
     override fun onResume() {
