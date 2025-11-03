@@ -33,6 +33,105 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginBottom="8dp" />
 
+        <!-- Offset Controls -->
+        <LinearLayout
+            android:id="@+id/layoutHeadingOffset"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp">
+
+            <Button
+                android:id="@+id/btnSubOffset"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="- Offset"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/txtOffsetValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Offset: 0°"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:layout_marginEnd="8dp" />
+
+            <Button
+                android:id="@+id/btnAddOffset"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="+ Offset"
+                android:layout_marginEnd="8dp" />
+
+            <Button
+                android:id="@+id/btnResetOffset"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Reset" />
+        </LinearLayout>
+
+        <!-- Manual Heading Input -->
+        <LinearLayout
+            android:id="@+id/layoutManualHeading"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp">
+
+            <EditText
+                android:id="@+id/edtManualHeading"
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:hint="Enter °"
+                android:inputType="numberDecimal"
+                android:gravity="center"
+                android:layout_marginEnd="8dp" />
+
+            <Button
+                android:id="@+id/btnSetHeading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Set Heading" />
+        </LinearLayout>
+
+        <!-- Anchor Node Navigation -->
+        <LinearLayout
+            android:id="@+id/layoutAnchorControls"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp">
+
+            <Button
+                android:id="@+id/btnPrevAnchor"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Prev Node"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/txtCurrentNode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Current: C4"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:layout_marginEnd="8dp" />
+
+            <Button
+                android:id="@+id/btnNextAnchor"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Next Node" />
+        </LinearLayout>
+
         <!-- Gleaming Text for Next Anchor -->
         <TextView
             android:id="@+id/txtNextAnchor"
@@ -109,7 +208,7 @@
                 android:layout_marginStart="6dp" />
         </LinearLayout>
 
-        <!-- Start/End Label Selectors -->
+        <!-- Start/End Labels -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
