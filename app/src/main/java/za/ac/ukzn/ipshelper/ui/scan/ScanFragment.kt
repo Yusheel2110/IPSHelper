@@ -21,11 +21,12 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.roundToInt
 
+data class CoordEntry(val label: String, val x: Float, val y: Float)
+
 class ScanFragment : Fragment() {
 
     // ---------- UI ----------
     private lateinit var spinner: Spinner
-    private lateinit var spinnerDirection: Spinner
     private lateinit var txtCoords: TextView
     private lateinit var txtResults: TextView
     private lateinit var txtHeading: TextView
@@ -42,31 +43,22 @@ class ScanFragment : Fragment() {
     // ---------- Scan Data ----------
     private var lastScanResults: List<ScanResult> = emptyList()
     private var selectedEntry: CoordEntry? = null
-    private var movingForward = true
-    private var directionIndex = 0
     private var flagCounter = 0
 
+    // ---------- Anchors ----------
     private val coordList = listOf(
-        CoordEntry("1-01", 1.0f, 0.0f),
-        CoordEntry("1-02", 0.1f, 1.0f),
-        CoordEntry("1-03", 0.1f, 4.3f),
-        CoordEntry("1-04", 1.0f, 5.5f),
-        CoordEntry("big doors", 2.0f, 4.6f),
-        CoordEntry("1-05", 3.0f, 5.5f),
-        CoordEntry("elevator", 3.3f, 3.9f),
-        CoordEntry("1-06", 7.5f, 5.5f),
-        CoordEntry("1-07", 13.0f, 5.5f),
-        CoordEntry("1-08", 16.3f, 5.5f),
-        CoordEntry("1-08A", 19.8f, 5.5f),
-        CoordEntry("staircase", 20.6f, 4.0f),
-        CoordEntry("1-17", 22.0f, 4.0f),
-        CoordEntry("1-09", 23.0f, 5.5f),
-        CoordEntry("end of hall", 25.99f, 4.64f),
-        CoordEntry("1-10", 27.0f, 5.5f),
-        CoordEntry("1-11", 28.0f, 4.5f),
-        CoordEntry("1-16", 26.0f, 2.5f),
-        CoordEntry("1-12", 28.0f, 0.5f),
-        CoordEntry("1-13", 27.0f, -3.5f)
+        CoordEntry("Stairs", 1.9433f, 0.6749f),
+        CoordEntry("C1", 1.0187f, 0.6741f),
+        CoordEntry("C4", 1.0154f, 4.6353f),
+        CoordEntry("C5", 2.9398f, 4.6369f),
+        CoordEntry("C7", 7.4118f, 4.6369f),
+        CoordEntry("C8", 12.9858f, 4.6369f),
+        CoordEntry("C9", 16.3398f, 4.6369f),
+        CoordEntry("C10", 19.6938f, 4.6369f),
+        CoordEntry("C13", 23.0568f, 4.6369f),
+        CoordEntry("C14", 27.0163f, 4.6369f),
+        CoordEntry("C16", 27.0398f, 2.4684f),
+        CoordEntry("C17", 27.0320f, 0.4515f)
     )
 
     // ---------- Permissions ----------
@@ -77,16 +69,13 @@ class ScanFragment : Fragment() {
         else Toast.makeText(requireContext(), "Permission Denied", Toast.LENGTH_SHORT).show()
     }
 
-    // ---------- Lifecycle ----------
-    override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View = inflater.inflate(R.layout.fragment_scan, container, false)
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View =
+        inflater.inflate(R.layout.fragment_scan, container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         spinner = view.findViewById(R.id.spinnerLabels)
-        spinnerDirection = view.findViewById(R.id.spinnerDirection)
         txtCoords = view.findViewById(R.id.txtCoords)
         txtResults = view.findViewById(R.id.txtResults)
         txtHeading = view.findViewById(R.id.txtHeading)
@@ -96,7 +85,7 @@ class ScanFragment : Fragment() {
         btnFlag = view.findViewById(R.id.btnFlag)
         btnZero = view.findViewById(R.id.btnZeroHeading)
 
-        // --- Spinner setup ---
+        // --- Anchor dropdown setup ---
         val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, coordList.map { it.label })
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinner.adapter = adapter
@@ -108,12 +97,7 @@ class ScanFragment : Fragment() {
             override fun onNothingSelected(parent: AdapterView<*>) {}
         }
 
-        val dirAdapter = ArrayAdapter.createFromResource(requireContext(), R.array.directions, android.R.layout.simple_spinner_item)
-        dirAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerDirection.adapter = dirAdapter
-        spinnerDirection.setSelection(directionIndex)
-
-        // --- Heading Manager init ---
+        // --- Heading Manager (live compass) ---
         headingManager = HeadingManager(
             context = requireContext(),
             onHeadingUpdate = { heading ->
@@ -121,7 +105,7 @@ class ScanFragment : Fragment() {
                 txtHeading.text = "Heading: ${heading.roundToInt()}°"
                 compassImage.rotation = -heading
             },
-            enableLogging = false // set true to log heading CSVs
+            enableLogging = false
         )
 
         // --- Buttons ---
@@ -175,18 +159,15 @@ class ScanFragment : Fragment() {
             return
         }
 
-        val direction = spinnerDirection.selectedItem.toString()
-        val heading = when (direction) {
-            "N" -> 0.0; "E" -> 90.0; "S" -> 180.0; "W" -> 270.0; else -> 0.0
-        }
-
         val scanData = JSONObject().apply {
             put("label", entry.label)
             put("x", entry.x)
             put("y", entry.y)
             put("z", 1)
-            put("heading", heading)
+            put("heading", currentHeading.roundToInt())  // <-- ✅ Live compass heading
+            put("phone_orientation", "front_portrait")
             put("timestamp", System.currentTimeMillis())
+
             val readings = JSONArray()
             lastScanResults.forEach {
                 readings.put(JSONObject().apply {
@@ -202,33 +183,7 @@ class ScanFragment : Fragment() {
         array.put(scanData)
         FileOutputStream(file).use { it.write(array.toString(4).toByteArray()) }
 
-        Snackbar.make(requireView(), "Scan saved for ${entry.label}", Snackbar.LENGTH_LONG).show()
-        moveToNextCoordinate(entry)
-    }
-
-    private fun moveToNextCoordinate(entry: CoordEntry) {
-        val currentIndex = coordList.indexOf(entry)
-        var nextIndex = currentIndex
-
-        if (movingForward) {
-            if (currentIndex < coordList.size - 1) nextIndex++
-            else {
-                movingForward = false; nextIndex--; directionIndex = (directionIndex + 1) % 4
-                spinnerDirection.setSelection(directionIndex)
-                Toast.makeText(requireContext(), "Reached end – reversing direction", Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            if (currentIndex > 0) nextIndex--
-            else {
-                movingForward = true; nextIndex++; directionIndex = (directionIndex + 1) % 4
-                spinnerDirection.setSelection(directionIndex)
-                Toast.makeText(requireContext(), "Reached start – reversing direction", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        selectedEntry = coordList[nextIndex]
-        spinner.setSelection(nextIndex)
-        txtCoords.text = "Coordinates: (x=${selectedEntry!!.x}, y=${selectedEntry!!.y}, z=1)"
+        Snackbar.make(requireView(), "Scan saved for ${entry.label} (Heading ${currentHeading.roundToInt()}°)", Snackbar.LENGTH_LONG).show()
     }
 
     private fun handleFlagClick() {
@@ -241,5 +196,3 @@ class ScanFragment : Fragment() {
         Snackbar.make(requireView(), "Flag #$flagCounter saved", Snackbar.LENGTH_LONG).show()
     }
 }
-
-data class CoordEntry(val label: String, val x: Float, val y: Float)
