@@ -94,9 +94,9 @@ class ScanFragment : Fragment() {
         btnScan = view.findViewById(R.id.btnScan)
         btnSave = view.findViewById(R.id.btnSaveScan)
         btnFlag = view.findViewById(R.id.btnFlag)
-        btnZero = view.findViewById(R.id.btnZeroHeading) // from XML
+        btnZero = view.findViewById(R.id.btnZeroHeading)
 
-        // Spinner setup
+        // --- Spinner setup ---
         val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, coordList.map { it.label })
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinner.adapter = adapter
@@ -113,18 +113,25 @@ class ScanFragment : Fragment() {
         spinnerDirection.adapter = dirAdapter
         spinnerDirection.setSelection(directionIndex)
 
-        // Heading Manager init
-        headingManager = HeadingManager(requireContext()) { heading ->
-            txtHeading.text = "Heading: ${heading.roundToInt()}°"
-            compassImage.rotation = -heading
-            currentHeading = heading
-        }
+        // --- Heading Manager init ---
+        headingManager = HeadingManager(
+            context = requireContext(),
+            onHeadingUpdate = { heading ->
+                currentHeading = heading
+                txtHeading.text = "Heading: ${heading.roundToInt()}°"
+                compassImage.rotation = -heading
+            },
+            enableLogging = false // set true to log heading CSVs
+        )
 
-        // Buttons
+        // --- Buttons ---
         btnScan.setOnClickListener { handleScanClick() }
         btnSave.setOnClickListener { handleSaveScanClick() }
         btnFlag.setOnClickListener { handleFlagClick() }
-        btnZero.setOnClickListener { headingManager.zero() }
+        btnZero.setOnClickListener {
+            headingManager.zero()
+            Toast.makeText(requireContext(), "Heading zeroed", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onResume() {

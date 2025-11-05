@@ -14,7 +14,8 @@ import kotlin.math.roundToInt
  */
 class HeadingManager(
     private val context: Context,
-    private val onHeadingUpdate: (Float) -> Unit
+    private val onHeadingUpdate: (Float) -> Unit,
+    private val enableLogging: Boolean = false
 ) : SensorEventListener {
 
     private val sensorManager =
@@ -22,6 +23,7 @@ class HeadingManager(
 
     private var currentHeading = 0f
     private var offset = 0f
+    private var lastAccuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH
 
     /** Start listening to rotation vector sensor. */
     fun start() {
@@ -43,6 +45,21 @@ class HeadingManager(
         offset = currentHeading
     }
 
+    /** Add a value to the current offset. */
+    fun addOffset(deltaDeg: Float) {
+        offset = (offset + deltaDeg + 360f) % 360f
+    }
+
+    /** Get the current offset. */
+    fun getOffset(): Float {
+        return offset
+    }
+
+    /** Get the last sensor accuracy status. */
+    fun getLastAccuracy(): Int {
+        return lastAccuracy
+    }
+
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type != Sensor.TYPE_ROTATION_VECTOR) return
 
@@ -61,8 +78,9 @@ class HeadingManager(
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        lastAccuracy = accuracy
         if (accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
-            Log.w("HeadingManager", "Compass accuracy low — move device in figure 8 to recalibrate.")
+            Log.w("HeadingManager", "⚠️ Compass accuracy low — move device in figure 8 to recalibrate.")
         }
     }
 }

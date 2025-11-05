@@ -51,9 +51,14 @@ class PDRManager(private val context: Context) : SensorEventListener {
         }
 
         // Start HeadingManager for smoother heading
-        headingManager = HeadingManager(context) { heading ->
-            headingDeg = heading.toDouble()
-        }
+        headingManager = HeadingManager(
+            context,
+            onHeadingUpdate = { heading ->
+                headingDeg = heading.toDouble()
+            },
+            enableLogging = true
+        )
+
         headingManager.start()
     }
 
